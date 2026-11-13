@@ -39,6 +39,9 @@ def mask_by_key(key, value):
     """Return a masked copy of `value` for a known-sensitive key, else value."""
     if not isinstance(value, str):
         return value
+    # already masked — running the redactor twice must not change the document
+    if value == "masked" or re.fullmatch(r"present \(\d+ chars\)", value):
+        return value
     k = key.lower()
 
     if "secret" in k and "token" not in k:

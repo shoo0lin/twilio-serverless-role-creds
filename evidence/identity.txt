@@ -7,7 +7,7 @@
 
 $ aws sts get-caller-identity --profile twilio-leak
 {
-  "UserId":  "AROAY2IZEHUX66TGRZI3L:ZBe35605a7…",
+  "UserId":  "AROAY2IZEHUX…:ZBe35605a7…",
   "Account": "606179966…",
   "Arn":     "arn:aws:sts::606179966…:assumed-role/lambda-role-execution/ZBe35605a7…"
 }

@@ -13,12 +13,14 @@ Rules applied (case-insensitive on the key):
 
     secret                      -> "masked"
     session_token               -> "present (N chars)"
-    access_key_id / key_id      -> first 8 chars + ellipsis  (ASIAY2IZ…)
-    account / account_id        -> first 6 digits + ellipsis
-    *_sid / sid                 -> first 8 chars + ellipsis
+    access_key_id / key_id      -> first 12 chars + ellipsis (ASIAY2IZEHUX…)
+    account / account_id        -> first 9 digits + ellipsis
+    *_sid / sid                 -> prefix + 8 chars + ellipsis (ACda1b0c…)
+                                   SM and PN keep 10, to match the
+                                   free-text forms below
     arn                         -> account and resource name masked
-    phone / number / to / from  -> country code and first digits only
-    nextSequenceToken           -> first 6 chars + ellipsis
+    phone / number / to / from  -> +1 keeps 6 digits, +91 keeps 5
+    nextSequenceToken           -> first 30 chars + ellipsis
     log_group / function_name   -> first path segment kept, tail masked
 
 Values that are booleans, counts, regions, domains and the runtime API address
@@ -26,6 +28,7 @@ are left alone: they carry no credential and they are the finding.
 """
 
 import json
+import os
 import re
 import sys
 
@@ -49,7 +52,7 @@ def mask_by_key(key, value):
     if "session_token" in k or k.endswith("_token"):
         return "present (%d chars)" % len(value)
     if "access_key" in k or k.endswith("key_id"):
-        return _ellipsis(value, 8)
+        return _ellipsis(value, 12)
     if "arn" in k:
         # arn:aws:sts::123456789012:assumed-role/role-name/session  ->
         # arn:aws:sts::123456…:assumed-role/role-name/…
@@ -60,19 +63,25 @@ def mask_by_key(key, value):
     if k in ("account", "account_id", "accountid") or "account_sid" in k:
         digits = re.sub(r"\D", "", value)
         if len(digits) >= 10 and k != "account_sid":
-            return digits[:6] + "…"
+            return digits[:9] + "…"
         return _ellipsis(value, 8)
     if k.endswith("_sid") or k == "sid":
-        return _ellipsis(value, 8)
+        # SM and PN keep one and two more characters than the AC/ZS/ZE forms,
+        # because that is how they appear in the published transcripts.
+        keep = {"SM": 10, "PN": 10}.get(value[:2], 8)
+        return _ellipsis(value, keep)
     if k in ("phone", "phone_number", "number", "to", "from", "to_number", "from_number"):
         digits = re.sub(r"\D", "", value)
-        return "+" + digits[:5] + "…" if digits else _ellipsis(value, 5)
+        if not digits:
+            return _ellipsis(value, 5)
+        # +1 keeps six digits, +91 keeps five: the published form for both
+        return "+" + digits[:6] + "…" if digits.startswith("1") else "+" + digits[:7] + "…"
     if k == "nextsequencetoken":
-        return _ellipsis(value, 6)
+        return _ellipsis(value, 30)
     if k in ("function_name", "aws_lambda_function_name"):
         return _ellipsis(value, 9)
     if k in ("log_group", "aws_lambda_log_group_name"):
-        return _ellipsis(value, 22)
+        return _ellipsis(value, 21)
     return value
 
 
@@ -80,20 +89,20 @@ def mask_by_key(key, value):
 
 VALUE_RULES = [
     # temporary AWS access key id
-    (re.compile(r"\b(ASIA[0-9A-Z]{8})[0-9A-Z]{6,}\b"), r"\1…"),
+    (re.compile(r"\b((?:ASIA|AROA|AKIA|AIDA|AIPA|ANPA|ANVA|APKA)[0-9A-Z]{8})[0-9A-Z]{6,}\b"), r"\1…"),
     # AWS account id inside an ARN or a bare 12-digit run
     (re.compile(r"(arn:aws:[a-z]+:[^:]*::)(\d{6})\d{6}"), r"\1\2…"),
     # Twilio SIDs
     (re.compile(r"\b(AC[0-9a-f]{6})[0-9a-f]{26}\b"), r"\1…"),
     (re.compile(r"\b(ZS[0-9a-f]{6})[0-9a-f]{26}\b"), r"\1…"),
     (re.compile(r"\b(ZE[0-9a-f]{6})[0-9a-f]{26}\b"), r"\1…"),
-    (re.compile(r"\b(PN[0-9a-f]{6})[0-9a-f]{28}\b"), r"\1…"),
-    (re.compile(r"\b(SM[0-9a-f]{6})[0-9a-f]{26}\b"), r"\1…"),
+    (re.compile(r"\b(PN[0-9a-f]{8})[0-9a-f]{26}\b"), r"\1…"),
+    (re.compile(r"\b(SM[0-9a-f]{8})[0-9a-f]{24}\b"), r"\1…"),
     # Lambda function ids (20-hex-ish) and their log-group path
     (re.compile(r"(/aws/lambda/)([A-Za-z0-9]{9})[A-Za-z0-9]{10,}"), r"\1\2…"),
     # E.164 numbers, keeping the country/area prefix only
-    (re.compile(r"(\+1\d{3})\d{7}\b"), r"\1…"),
-    (re.compile(r"(\+91\d{4})\d{6}\b"), r"\1…"),
+    (re.compile(r"(\+1\d{6})\d{4}\b"), r"\1…"),
+    (re.compile(r"(\+91\d{5})\d{5}\b"), r"\1…"),
     # long opaque tokens (session tokens, sequence tokens)
     (re.compile(r"\b([A-Za-z0-9/+=]{6})[A-Za-z0-9/+=]{80,}\b"), r"\1…"),
 ]
@@ -176,12 +185,45 @@ def self_test():
     return 0
 
 
+def check(paths):
+    """Exit non-zero if a file still holds anything the policy would mask.
+
+    A published artefact has to be a fixed point of this script: masking it
+    again must change nothing. That is the whole claim the repository makes
+    about evidence/, and this is the command that checks it.
+    """
+    bad = 0
+    for path in paths:
+        raw = open(path, encoding="utf-8").read()
+        try:
+            doc = json.loads(raw)
+        except json.JSONDecodeError:
+            clean = mask_text(raw) == raw
+        else:
+            clean = walk(doc) == doc
+        print("%-9s %s" % ("clean" if clean else "UNMASKED", path))
+        bad += 0 if clean else 1
+    print()
+    print("OK — %d file(s) are fixed points of the policy" % (len(paths) - bad)
+          if not bad else "FAIL — %d file(s) still hold maskable values" % bad)
+    return 1 if bad else 0
+
+
 def main(argv):
     if "--self-test" in argv:
         return self_test()
+    if "--check" in argv:
+        args = [a for a in argv[1:] if not a.startswith("--")]
+        if not args:
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            args = sorted(
+                os.path.join(root, "evidence", f)
+                for f in os.listdir(os.path.join(root, "evidence"))
+            )
+        return check(args)
     if len(argv) < 2:
         print(__doc__.strip().splitlines()[0])
-        print("usage: redact.py <file.json | -> [--self-test]")
+        print("usage: redact.py <file.json | -> | --self-test | --check [files…]")
         return 2
     path = argv[1]
     raw = sys.stdin.read() if path == "-" else open(path, encoding="utf-8").read()

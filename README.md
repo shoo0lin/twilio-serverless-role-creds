@@ -58,7 +58,7 @@ and nothing in the JavaScript layer rewrites it.
 ```console
 $ aws sts get-caller-identity --profile twilio-leak
 {
-  "UserId":  "AROAY2IZEHUX66TGRZI3L:ZBe35605a7…",
+  "UserId":  "AROAY2IZEHUX…:ZBe35605a7…",
   "Account": "606179966…",
   "Arn":     "arn:aws:sts::606179966…:assumed-role/lambda-role-execution/ZBe35605a7…"
 }
@@ -69,7 +69,7 @@ at all. It proves the credential is real and off-host; it proves nothing about
 authorization. The permission measurement is the next call:
 
 ```console
-$ aws logs put-log-events --log-group-name "/aws/lambda/ZBe35605a7…" \
+$ aws logs put-log-events --log-group-name "/aws/lambda/ZBeaf0U42…" \
     --log-stream-name "bb-repro-pwn" --log-events '[ … ]'
 { "nextSequenceToken": "496703824176290625488423465073…" }
 ```
@@ -126,13 +126,25 @@ $ python3 poc/controls.py                # the three-way differential
 `poc/deploy.sh` writes a fresh `REVEAL_TOKEN` to `.env`; `functions/env-audit.js`
 returns the credentials only when the request carries it, so a function you forget
 to delete is not a public credential dump. `out/` is git-ignored. Every value in
-`evidence/` is masked to the policy `poc/redact.py` implements, and the script
-carries a self-test so the policy itself is checkable:
+`evidence/` is masked to the policy `poc/redact.py` implements. Two commands make
+that checkable rather than asserted — the first checks the policy, the second
+checks the published files against it:
 
 ```console
 $ python3 poc/redact.py --self-test
-SELFTEST PASS — 9 forbidden strings absent; region and domain intact
+SELFTEST PASS — 10 forbidden strings absent; region and domain intact
+
+$ python3 poc/redact.py --check
+clean     evidence/account.txt
+clean     evidence/identity.txt
+clean     evidence/log-write.txt
+clean     evidence/response.redacted.json
+
+OK — 4 file(s) are fixed points of the policy
 ```
+
+`--check` fails if re-running the masker would change anything, which is what
+"already masked" has to mean.
 
 `poc/offhost_check.py --probe` additionally attempts `s3 ls`, `iam get-user`,
 `lambda list-functions` and `logs describe-log-groups` with the captured
@@ -178,7 +190,7 @@ poc/deploy.sh              twilio serverless:deploy, with a fresh reveal token
 poc/fetch.sh               call the function; raw + redacted response
 poc/offhost_check.py       use the credential off-host; --write, --probe
 poc/controls.py            token-removed / token-fabricated / token-real
-poc/redact.py              field-name masking + value pass, with --self-test
+poc/redact.py              field-name masking + value pass; --self-test, --check
 evidence/response.redacted.json   the function's response, masked
 evidence/identity.txt             sts:GetCallerIdentity, masked
 evidence/log-write.txt            the one permitted write

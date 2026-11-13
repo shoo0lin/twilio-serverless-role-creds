@@ -44,6 +44,10 @@ const raw = fs.readFileSync("/proc/self/environ", "utf8");
 }
 ```
 
+That is the field run's response. This repository's function also echoes
+`aws_lambda_runtime_api` — the link-local address the runtime answers on — and a
+`read_error` field that is `null` when the read succeeded.
+
 `process.env` is not where the interesting values live on this runtime — the
 runtime's require-hooking strips some of them from the ordinary environment.
 `/proc/self/environ` is the kernel's copy of what the process was started with,

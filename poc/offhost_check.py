@@ -36,9 +36,13 @@ def load():
     if not os.path.exists(path):
         sys.exit("no %s — run poc/fetch.sh first" % path)
     doc = json.load(open(path, encoding="utf-8"))
-    creds = doc.get("credentials")
-    if not isinstance(creds, dict) or not creds.get("access_key_id"):
-        sys.exit("credentials withheld in that response; pass ?token=<REVEAL_TOKEN>")
+    creds = {
+        "access_key_id": doc.get("aws_access_key_id"),
+        "secret_access_key": doc.get("aws_secret_access_key"),
+        "session_token": doc.get("aws_session_token"),
+    }
+    if not creds["access_key_id"] or not creds["secret_access_key"]:
+        sys.exit("credentials withheld in that response; run poc/fetch.sh --reveal")
     return doc, creds
 
 
@@ -51,7 +55,7 @@ def env_for(doc, creds, drop_session_token=False):
     env["AWS_SECRET_ACCESS_KEY"] = creds["secret_access_key"]
     if not drop_session_token:
         env["AWS_SESSION_TOKEN"] = creds["session_token"]
-    env["AWS_REGION"] = env["AWS_DEFAULT_REGION"] = doc.get("region") or "us-east-1"
+    env["AWS_REGION"] = env["AWS_DEFAULT_REGION"] = doc.get("aws_region") or "us-east-1"
     return env
 
 
@@ -76,7 +80,7 @@ def main(argv):
     print("account: %s | role: %s" % (idn.get("Account"), idn.get("Arn")))
 
     if "--write" in argv:
-        group = doc.get("log_group") or ""
+        group = doc.get("aws_log_group") or ""
         stream = "poc-%d" % int(time.time())
         print("\n# own-log-group write (the one permitted mutation)")
         print("log group: %s" % group)

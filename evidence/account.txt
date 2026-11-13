@@ -1,0 +1,48 @@
+# The rest of the account, and the two objects that refute the rest of the claim.
+#
+# Every value here is masked by poc/redact.py. The promotional balance and the
+# SMS status are left as-is because they carry the argument, not a secret.
+
+$ twilio api:core:balance:fetch
+# balance: $15.50   (promotional credit, not a purchase; no payment method on file)
+
+# ---------------------------------------------------------------------------
+# Number purchase — the account's own credit, one number, no card
+# ---------------------------------------------------------------------------
+
++1415965… is not available.
+
+$ curl "…/AvailablePhoneNumbers/US/Local.json?AreaCode=415"
++1415471… | San Francisco
++1415223… | San Rafael
+
+$ curl -X POST "…/IncomingPhoneNumbers.json" \
+    --data-urlencode "PhoneNumber=+1415471…"
+
+BOUGHT: PNf07db6da… | Number: +1415471…
+
+# ---------------------------------------------------------------------------
+# Message send — and the watermark that kills the spam leg
+# ---------------------------------------------------------------------------
+
+$ curl -X POST "…/Messages.json" \
+    --data-urlencode "From=+1415471…" \
+    --data-urlencode "To=+9198318…" \
+    --data-urlencode "Body=BB-REPRO: This SMS was sent from Twilio
+      infrastructure using creds extracted from a Serverless Function
+      deployed by a Trial account. Reproduce confirmed."
+
+SMS SENT! SID: SM3913456e…
+From: +1415471…
+To:   +9198318…
+Status: queued
+
+# `queued` is not `delivered`. The handset was checked separately; the received
+# bubble begins:
+#
+#     Sent from your Twilio trial account - BB-REPRO: …
+#
+# Twilio prepends that to every trial message, and a trial number can only be
+# sent to a destination verified on the same account. Both restrictions are
+# enforced by the platform, not by the sender — which is why "trial account
+# spams or phishes at scale" does not survive its own screenshot.

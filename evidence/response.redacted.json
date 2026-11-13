@@ -1,0 +1,14 @@
+{
+  "aws_access_key_id": "ASIAY2IZEHUX…",
+  "aws_secret_access_key": "masked",
+  "aws_session_token": "present (1100 chars)",
+  "aws_region": "us-east-1",
+  "aws_function_name": "ZBeaf0U42…",
+  "aws_log_group": "/aws/lambda/ZBeaf0U42…",
+  "parent_token_present": false,
+  "auth_token_present": true,
+  "account_sid": "ACda1b0c…",
+  "service_sid": "ZS7e106d…",
+  "environment_sid": "ZE2486da…",
+  "domain": "rce-build-test-2034-dev.twil.io"
+}

@@ -1,0 +1,8 @@
+# local capture, credentials, deploy output
+out/
+.env
+cookies*.txt
+cookie*.txt
+__pycache__/
+*.pyc
+.DS_Store

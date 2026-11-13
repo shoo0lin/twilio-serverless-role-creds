@@ -1,0 +1,34 @@
+# The one permitted write, and the shape of the wall.
+#
+# This was the only mutation the field run attempted: a log stream and a log event
+# in the function's *own* log group. The nextSequenceToken in the response is the
+# evidence that CloudWatch accepted it.
+#
+# No S3 probe, no IAM probe, no call against another log group and no call to the
+# Twilio API with the AWS token were made in that run. The harness in this
+# repository can attempt those reads on your own account (poc/offhost_check.py
+# --probe); if you run it, the results are yours and should be reported as yours.
+
+$ aws logs create-log-stream \
+    --log-group-name "/aws/lambda/ZBe35605a7…" \
+    --log-stream-name "bb-repro-pwn" --region us-east-1 --profile twilio-leak
+
+$ aws logs put-log-events \
+    --log-group-name "/aws/lambda/ZBe35605a7…" \
+    --log-stream-name "bb-repro-pwn" \
+    --log-events '[{"timestamp": 1748…, "message": "…used externally…"}]' \
+    --region us-east-1 --profile twilio-leak
+
+{ "nextSequenceToken": "496703824176290625488423465073…" }
+
+
+# Why this matters for the score
+#
+# The role is least-privilege: it is scoped to the log group its own function
+# writes to. A credential that can write its own logs is a confidentiality problem
+# (the values are readable, and they identify the account and role) without being
+# an availability or integrity problem for anyone else. That is the difference
+# between the 9.9 in the first draft and the 4.3 in the published one.
+#
+# A write that succeeded in someone else's log group, or a read of another
+# function's environment, would move the score. Nothing here shows either.

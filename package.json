@@ -1,0 +1,8 @@
+{
+  "name": "twilio-serverless-role-creds",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Read the Twilio Serverless execution role's credentials from /proc/self/environ",
+  "license": "MIT",
+  "dependencies": {}
+}

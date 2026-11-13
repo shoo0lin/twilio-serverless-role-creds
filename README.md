@@ -121,8 +121,9 @@ $ python3 poc/controls.py                # the three-way differential
 
 `poc/deploy.sh` writes a fresh `REVEAL_TOKEN` to `.env`; `functions/env-audit.js`
 returns the credentials only when the request carries it, so a function you forget
-to delete is not a public credential dump. `out/` is git-ignored. The published
-artefacts in `evidence/` were produced by `poc/redact.py`, which has a self-test:
+to delete is not a public credential dump. `out/` is git-ignored. Every value in
+`evidence/` is masked to the policy `poc/redact.py` implements, and the script
+carries a self-test so the policy itself is checkable:
 
 ```console
 $ python3 poc/redact.py --self-test
@@ -145,8 +146,8 @@ third party.
 
 The raw evidence bundle is not published. It is a screen recording and a set of
 screenshots containing live credentials, full SIDs, a phone number and a handset
-screen. The trimmed, mechanically redacted artefacts in `evidence/` are the parts
-that carry the argument, and `poc/redact.py` is the thing that produced them.
+screen. `evidence/` keeps the parts that carry the argument, in the masked form
+published with the write-up.
 
 The deployed endpoint is not published either. It executes code as whatever role
 the platform assigns, and there is no reason to leave a working one in a public
@@ -186,5 +187,4 @@ MIT — see [LICENSE](LICENSE).
 
 Not affiliated with or endorsed by Twilio or Amazon. Twilio, Twilio Serverless,
 AWS and Lambda are trademarks of their respective owners. This is independent
-security research on my own account, published with the values masked and the
-test account deleted.
+security research on my own trial account, published with the values masked.
